@@ -21,7 +21,7 @@ import static bms.player.beatoraja.select.MusicSelectKeyProperty.MusicSelectKey.
  *
  * @author exch
  */
-public class MusicSelectInputProcessor {
+public final class MusicSelectInputProcessor {
 
     /**
      * バー移動中のカウンタ
@@ -65,7 +65,8 @@ public class MusicSelectInputProcessor {
         final PlayerResource resource = main.getPlayerResource();
         final PlayerConfig config = resource.getPlayerConfig();
         final BarRenderer bar = select.getBarRender();
-        final Bar current = bar.getSelected();
+        final BarManager barManager = select.getBarManager();
+        final Bar current = select.getBarManager().getSelected();
 
         if (input.isControlKeyPressed(ControlKeys.NUM0)) {
             // 検索用ポップアップ表示。これ必要？
@@ -73,8 +74,8 @@ public class MusicSelectInputProcessor {
                 @Override
                 public void input(String text) {
                     if (text.length() > 1) {
-                        bar.addSearch(new SearchWordBar(select, text));
-                        bar.updateBar(null);
+                    	barManager.addSearch(new SearchWordBar(select, text));
+                    	barManager.updateBar(null);
                     }
                 }
 
@@ -306,10 +307,10 @@ public class MusicSelectInputProcessor {
                     // replay
                     select.selectSong(config.isEventMode() ? BMSPlayerMode.PLAY : ((select.getSelectedReplay() >= 0) ? BMSPlayerMode.getReplayMode(select.getSelectedReplay()) : BMSPlayerMode.PLAY));
                 }
-            } else {
+            } else if (current instanceof DirectoryBar dirbar) {
                 if (property.isPressed(input, MusicSelectKey.FOLDER_OPEN, true) || input.isControlKeyPressed(ControlKeys.RIGHT) || input.isControlKeyPressed(ControlKeys.ENTER)) {
                     // open folder
-                    if (bar.updateBar(current)) {
+                    if (select.getBarManager().updateBar(dirbar)) {
                         select.play(SoundType.FOLDER_OPEN);
                     }
                 }
@@ -327,7 +328,7 @@ public class MusicSelectInputProcessor {
             // close folder
             if (property.isPressed(input, MusicSelectKey.FOLDER_CLOSE, true) || input.isControlKeyPressed(ControlKeys.LEFT)) {
                 input.resetKeyChangedTime(1);
-                bar.close();
+                select.getBarManager().close();
             }
 
     		if(input.isActivated(KeyCommand.AUTOPLAY_FOLDER)) {
@@ -348,17 +349,17 @@ public class MusicSelectInputProcessor {
         }
 
         // song bar moved
-        if (bar.getSelected() != current) {
+        if (select.getBarManager().getSelected() != current) {
             select.selectedBarMoved();
         }
         select.timer.switchTimer(TIMER_SONGBAR_CHANGE, true);
         // update folder
 		if(input.isActivated(KeyCommand.UPDATE_FOLDER)) {
-            select.execute(MusicSelectCommand.UPDATE_FOLDER);
+            select.executeEvent(EventType.update_folder);
         }
         // open explorer with selected song
 		if(input.isActivated(KeyCommand.OPEN_EXPLORER)) {
-            select.execute(MusicSelectCommand.OPEN_WITH_EXPLORER);
+            select.executeEvent(EventType.open_with_explorer);
         }
         // copy song MD5 hash
         if(input.isActivated(KeyCommand.COPY_SONG_MD5_HASH)) {

@@ -15,6 +15,7 @@ import bms.player.beatoraja.result.CourseResult;
 import bms.player.beatoraja.result.MusicResult;
 import bms.player.beatoraja.select.MusicSelector;
 import bms.player.beatoraja.select.bar.*;
+import bms.player.beatoraja.skin.SkinProperty;
 import bms.player.beatoraja.song.SongData;
 
 public class BooleanPropertyFactory {
@@ -191,13 +192,11 @@ public class BooleanPropertyFactory {
 				if (state instanceof BMSPlayer) {
 					JudgeManager judge = ((BMSPlayer) state).getJudgeManager();
 					if (type == 0) {
-						return judge.getNowJudge().length > player && judge.getNowJudge()[player] == 1;
+						return judge.getNowJudge(player) == 1;
 					} else if (type == 1) {
-						return judge.getNowJudge().length > player && judge.getNowJudge()[player] > 1
-								&& judge.getRecentJudgeTiming()[player] > 0;
+						return judge.getNowJudge(player) > 1 && judge.getRecentJudgeTiming(player) > 0;
 					} else {
-						return judge.getNowJudge().length > player && judge.getNowJudge()[player] > 1
-								&& judge.getRecentJudgeTiming()[player] < 0;
+						return judge.getNowJudge(player) > 1 && judge.getRecentJudgeTiming(player) < 0;
 					}
 				}
 				return false;				
@@ -317,9 +316,9 @@ public class BooleanPropertyFactory {
 			if (state instanceof MusicSelector) {
 				final Bar current = ((MusicSelector) state).getSelectedBar();
 				return (current instanceof SelectableBar)
-						&& ((SelectableBar) current).getExistsReplayData().length > index
-						&& (type == 0 ? ((SelectableBar) current).getExistsReplayData()[index]
-								: !((SelectableBar) current).getExistsReplayData()[index]);
+						&& index >= 0 && index < MusicSelector.REPLAY
+						&& (type == 0 ? ((SelectableBar) current).existsReplay(index)
+								: !((SelectableBar) current).existsReplay(index));
 			} else if (state instanceof AbstractResult) {
 				return ((AbstractResult) state).getReplayStatus(index) == (type == 0 ? AbstractResult.ReplayStatus.EXIST
 						: (type == 1 ? AbstractResult.ReplayStatus.NOT_EXIST : AbstractResult.ReplayStatus.SAVED));
@@ -653,6 +652,20 @@ public class BooleanPropertyFactory {
 		trophy_option_allscr(OPTION_CLEAR_ALLSCR, new TrophyDrawCondition(SongTrophy.ALL_SCR)),
 		trophy_option_exrandom(OPTION_CLEAR_EXRANDOM, new TrophyDrawCondition(SongTrophy.EX_RANDOM)),
 		trophy_option_exsrandom(OPTION_CLEAR_EXSRANDOM, new TrophyDrawCondition(SongTrophy.EX_S_RANDOM)),
+
+		constant(OPTION_CONSTANT, new DrawProperty(DrawProperty.TYPE_NO_STATIC,
+				(state -> {
+					if (state instanceof MusicSelector selector) {
+						final PlayConfig playConfig = selector.getSelectedBarPlayConfig();
+						if (playConfig != null) {
+							return playConfig.isEnableConstant();
+						}
+					} else if (state instanceof BMSPlayer player) {
+						return player.resource.getPlayerConfig().getPlayConfig(player.getMode()).getPlayconfig().isEnableConstant();
+					}
+					return false;
+				})
+		)),
 
 		;
 		/**

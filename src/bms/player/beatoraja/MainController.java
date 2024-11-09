@@ -36,7 +36,6 @@ import bms.player.beatoraja.select.bar.TableBar;
 import bms.player.beatoraja.skin.SkinLoader;
 import bms.player.beatoraja.skin.SkinObject.SkinOffset;
 import bms.player.beatoraja.skin.SkinProperty;
-import bms.player.beatoraja.skin.property.IntegerPropertyFactory;
 import bms.player.beatoraja.song.*;
 import bms.player.beatoraja.stream.StreamController;
 import bms.tool.mdprocessor.MusicDownloadProcessor;
@@ -51,6 +50,7 @@ public class MainController {
 	private static final String VERSION = "beatoraja 0.8.7";
 
 	public static final boolean debug = false;
+	public static final int debugTextXpos = 10;
 
 	/**
 	 * 起動時間
@@ -71,7 +71,6 @@ public class MainController {
 
 	private PlayerResource resource;
 
-	private FreeTypeFontGenerator generator;
 	private BitmapFont systemfont;
 	private MessageRenderer messageRenderer;
 
@@ -276,14 +275,12 @@ public class MainController {
 
 		if (newState != null && current != newState) {
 			if(current != null) {
+				current.shutdown();
 				current.setSkin(null);
 			}
 			newState.create();
 			if(newState.getSkin() != null) {
 				newState.getSkin().prepare(newState);
-			}
-			if (current != null) {
-				current.shutdown();
 			}
 			current = newState;
 			timer.setMainState(newState);
@@ -312,12 +309,13 @@ public class MainController {
 		SkinLoader.initPixmapResourcePool(config.getSkinPixmapGen());
 
 		try {
-			generator = new FreeTypeFontGenerator(Gdx.files.internal(config.getSystemfontpath()));
+			FreeTypeFontGenerator generator = new FreeTypeFontGenerator(Gdx.files.internal(config.getSystemfontpath()));
 			FreeTypeFontParameter parameter = new FreeTypeFontParameter();
 			parameter.size = 24;
 			systemfont = generator.generateFont(parameter);
+			generator.dispose();
 		} catch (GdxRuntimeException e) {
-			Logger.getGlobal().severe("System Font１読み込み失敗");
+			Logger.getGlobal().severe("System Font読み込み失敗");
 		}
 		messageRenderer = new MessageRenderer(config.getMessagefontpath());
 
@@ -435,30 +433,60 @@ public class MainController {
 			sprite.begin();
 			systemfont.setColor(Color.CYAN);
 			message.setLength(0);
-			systemfont.draw(sprite, message.append("FPS ").append(Gdx.graphics.getFramesPerSecond()), 10,
+			systemfont.draw(sprite, message.append("FPS ").append(Gdx.graphics.getFramesPerSecond()), debugTextXpos,
 					config.getResolution().height - 2);
-			if(debug) {
+					if(debug) {
 				message.setLength(0);
-				systemfont.draw(sprite, message.append("Skin Pixmap Images ").append(SkinLoader.getResource().size()), 10,
+				systemfont.draw(sprite, message.append("Skin Pixmap Images ").append(SkinLoader.getResource().size()), debugTextXpos,
 						config.getResolution().height - 26);
 				message.setLength(0);
-				systemfont.draw(sprite, message.append("Total Memory Used(MB) ").append(Runtime.getRuntime().totalMemory() / (1024 * 1024)), 10,
+				systemfont.draw(sprite, message.append("Total Memory Used(MB) ").append(Runtime.getRuntime().totalMemory() / (1024 * 1024)), debugTextXpos,
 						config.getResolution().height - 50);
 				message.setLength(0);
-				systemfont.draw(sprite, message.append("Total Free Memory(MB) ").append(Runtime.getRuntime().freeMemory() / (1024 * 1024)), 10,
+				systemfont.draw(sprite, message.append("Total Free Memory(MB) ").append(Runtime.getRuntime().freeMemory() / (1024 * 1024)), debugTextXpos,
 						config.getResolution().height - 74);
 				message.setLength(0);
-				systemfont.draw(sprite, message.append("Max Sprite In Batch ").append(sprite.maxSpritesInBatch), 10,
+				systemfont.draw(sprite, message.append("Max Sprite In Batch ").append(sprite.maxSpritesInBatch), debugTextXpos,
 						config.getResolution().height - 98);
 				message.setLength(0);
-				systemfont.draw(sprite, message.append("Skin Pixmap Resource Size ").append(SkinLoader.getResource().size()), 10,
+				systemfont.draw(sprite, message.append("Skin Pixmap Resource Size ").append(SkinLoader.getResource().size()), debugTextXpos,
 						config.getResolution().height - 122);
 				message.setLength(0);
-				systemfont.draw(sprite, message.append("Stagefile Pixmap Resource Size ").append(selector.getStagefileResource().size()), 10,
+				systemfont.draw(sprite, message.append("Stagefile Pixmap Resource Size ").append(selector.getStagefileResource().size()), debugTextXpos,
 						config.getResolution().height - 146);
 				message.setLength(0);
-				systemfont.draw(sprite, message.append("Banner Pixmap Resource Size ").append(selector.getBannerResource().size()), 10,
+				systemfont.draw(sprite, message.append("Banner Pixmap Resource Size ").append(selector.getBannerResource().size()), debugTextXpos,
 						config.getResolution().height - 170);
+						if (current.getSkin() != null) {
+					message.setLength(0);
+					systemfont.draw(sprite, message.append("Skin Prepare Time ").append(current.getSkin().pcntPrepare), debugTextXpos,
+							config.getResolution().height - 194);
+					message.setLength(0);
+					systemfont.draw(sprite, message.append("Skin Draw Time ").append(current.getSkin().pcntDraw), debugTextXpos,
+							config.getResolution().height - 218);
+					var i = 0;
+					var l = current.getSkin().pcntmap.keySet().stream().mapToInt(c->c.getSimpleName().length()).max().orElse(1);
+					var f = "%" + l + "s";
+					message.setLength(0);
+					message.append(String.format(f,"SkinObject")).append(" num // prepare cur/avg/max // draw cur/avg/max");
+					systemfont.draw(sprite, message, debugTextXpos, config.getResolution().height - 242);
+					var entrys = current.getSkin().pcntmap.entrySet().stream()
+						.sorted((e1,e2) -> e1.getKey().getSimpleName().compareTo(e2.getKey().getSimpleName()))
+						.toList();
+					for (Map.Entry<Class, long[]> e : entrys) {
+						message.setLength(0);
+						message.append(String.format(f,e.getKey().getSimpleName())).append(" ")
+						.append(e.getValue()[0]).append(" // ")
+						.append(e.getValue()[1]/100).append(" / ")
+						.append(e.getValue()[2]/100000).append(" / ")
+						.append(e.getValue()[3]/100).append(" // ")
+						.append(e.getValue()[4]/100).append(" / ")
+						.append(e.getValue()[5]/100000).append(" / ")
+						.append(e.getValue()[6]/100);
+						systemfont.draw(sprite, message, debugTextXpos, config.getResolution().height - (266 + i * 24));
+						i++;
+					}
+				}
 			}
 
 			sprite.end();
@@ -563,7 +591,7 @@ public class MainController {
             	download.setDownloadpath(null);
             }
 			if (updateSong != null && !updateSong.isAlive()) {
-				selector.getBarRender().updateBar();
+				selector.getBarManager().updateBar();
 				updateSong = null;
 			}
         }
